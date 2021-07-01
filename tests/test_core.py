@@ -838,6 +838,23 @@ class TestCollectorRegistry(unittest.TestCase):
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
         self.assertEqual([m], list(registry.restricted_registry(['target_info']).collect()))
 
+    def test_prefixed_registry(self):
+        self.maxDiff = None
+
+        registry = CollectorRegistry()
+        c = Counter('c_total', 'help', registry=registry)
+        s = Summary('s', 'help', registry=registry).observe(7)
+
+        # Filter the hard to mock values (_created) away
+        restricted_registry = registry.restricted_registry(['c_total', 's_sum'])
+
+        m1 = Metric('prefixed_c', 'help', 'counter')
+        m1.samples = [Sample('prefixed_c_total', {}, 0)]
+        m2 = Metric('prefixed_s', 'help', 'summary')
+        m2.samples = [Sample('prefixed_s_sum', {}, 7)]
+
+        self.assertEqual([m1, m2], list(restricted_registry.prefixed_registry('prefixed').collect()))
+
 
 if __name__ == '__main__':
     unittest.main()

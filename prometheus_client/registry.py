@@ -4,7 +4,34 @@ from threading import Lock
 from .metrics_core import Metric
 
 
-class CollectorRegistry(object):
+class BaseRegistry(object):
+    def restricted_registry(self, names):
+        """Returns object that only collects some metrics.
+
+        Returns an object which upon collect() will return
+        only samples with the given names.
+
+        Intended usage is:
+            generate_latest(REGISTRY.restricted_registry(['a_timeseries']))
+
+        Experimental."""
+        names = set(names)
+        return RestrictedRegistry(names, self)
+
+    def prefixed_registry(self, prefix):
+        """Returns object that adds a common prefix to all metrics.
+
+        Returns an object which upon collect() will return
+        samples with a given prefix added.
+
+        Intended usage is:
+            generate_latest(REGISTRY.prefixed_registry('prefix'))
+
+        Experimental."""
+        return PrefixedRegistry(prefix, self)
+
+
+class CollectorRegistry(BaseRegistry):
     """Metric collector registry.
 
     Collectors must have a no-argument method 'collect' that returns a list of
@@ -83,19 +110,6 @@ class CollectorRegistry(object):
             for metric in collector.collect():
                 yield metric
 
-    def restricted_registry(self, names):
-        """Returns object that only collects some metrics.
-
-        Returns an object which upon collect() will return
-        only samples with the given names.
-
-        Intended usage is:
-            generate_latest(REGISTRY.restricted_registry(['a_timeseries']))
-
-        Experimental."""
-        names = set(names)
-        return RestrictedRegistry(names, self)
-
     def set_target_info(self, labels):
         with self._lock:
             if labels:
@@ -129,7 +143,7 @@ class CollectorRegistry(object):
         return None
 
 
-class RestrictedRegistry(object):
+class RestrictedRegistry(BaseRegistry):
     def __init__(self, names, registry):
         self._name_set = set(names)
         self._registry = registry
@@ -139,6 +153,17 @@ class RestrictedRegistry(object):
             m = metric._restricted_metric(self._name_set)
             if m:
                 yield m
+
+
+class PrefixedRegistry(BaseRegistry):
+    def __init__(self, prefix, registry):
+        self._prefix = prefix
+        self._registry = registry
+
+    def collect(self):
+        for metric in self._registry.collect():
+            m = metric._prefixed_metric(self._prefix)
+            yield m
 
 
 REGISTRY = CollectorRegistry(auto_describe=True)

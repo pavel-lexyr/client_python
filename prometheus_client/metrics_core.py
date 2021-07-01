@@ -67,6 +67,15 @@ class Metric(object):
             return m
         return None
 
+    def _prefixed_metric(self, prefix):
+        """Build a snapshot of a metric with samples prefixed with a given string."""
+        m = Metric(prefix + "_" + self.name, self.documentation, self.type)
+        m.samples = [
+            sample._replace(name=prefix + "_" + sample.name)
+            for sample in self.samples
+        ]
+        return m
+
 
 class UnknownMetricFamily(Metric):
     """A single unknown metric and its samples.
